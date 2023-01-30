@@ -10,7 +10,6 @@ import edu.wpi.first.wpilibj.XboxController.Axis;
 import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.robot.RobotContainer;
-import frc.robot.subsystems.ADIS.IMUAxis;
 
 /**
  * This command is designed so that a driver can drive 
@@ -31,20 +30,19 @@ import frc.robot.subsystems.ADIS.IMUAxis;
 public class DriveFieldRelativeAdvanced extends CommandBase {
   private double currentAngle = 0;
   private boolean wasDriverControl;
+  private boolean veloMode;
 
   /** Creates a new DriveFieldCentricAdvanced. */
-  public DriveFieldRelativeAdvanced() {
+  public DriveFieldRelativeAdvanced(boolean veloMode) {
     addRequirements(RobotContainer.swerveDrive);
+    this.veloMode = veloMode;
   }
 
   // Called when the command is initially scheduled.
   @Override
   public void initialize() {
-    RobotContainer.swerveDrive.setGyroAxis(IMUAxis.kY);
-    // RobotContainer.swerveDrive.setIsOdometry(false);
     currentAngle = RobotContainer.swerveDrive.getGyroInRad();
     wasDriverControl = false;
-    RobotContainer.swerveDrive.setIsOdometry(false);
   }
 
   // Called every time the scheduler runs while the command is scheduled.
@@ -63,7 +61,7 @@ public class DriveFieldRelativeAdvanced extends CommandBase {
     //create rotation speed from gamepad triggers
     double rotSpeed = Robot.robotContainer.getDriverAxis(Axis.kRightTrigger) - Robot.robotContainer.getDriverAxis(Axis.kLeftTrigger);
 
-    //use DPad to turn to specific angles.
+    //use DPad to turn to specific angles. left over from 2021
     // if(Robot.robotContainer.getDriverDPad() == 0){
     //   currentAngle = Math.round(RobotContainer.swerveDrive.getGyroInRad()/Constants.TWO_PI) * Constants.TWO_PI;
     // }
@@ -78,7 +76,7 @@ public class DriveFieldRelativeAdvanced extends CommandBase {
         awaySpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
         lateralSpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
         rotSpeed*-Constants.DRIVER_SPEED_SCALE_ROTATIONAL ,
-        false
+        veloMode
       );
       //for when rotation speed is zero, update the current angle
       currentAngle = RobotContainer.swerveDrive.getGyroInRad();
@@ -91,7 +89,7 @@ public class DriveFieldRelativeAdvanced extends CommandBase {
           awaySpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
           lateralSpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
           0,
-          false
+          veloMode
         );
         currentAngle = RobotContainer.swerveDrive.getGyroInRad();
       }else{
@@ -100,7 +98,7 @@ public class DriveFieldRelativeAdvanced extends CommandBase {
           awaySpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
           lateralSpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
           RobotContainer.swerveDrive.getCounterRotationPIDOut(currentAngle),
-          false
+          veloMode
         );
         wasDriverControl = false;
       }
@@ -110,7 +108,6 @@ public class DriveFieldRelativeAdvanced extends CommandBase {
   // Called once the command ends or is interrupted.
   @Override
   public void end(boolean interrupted) {
-    RobotContainer.swerveDrive.setIsOdometry(true);
   }
 
   // Returns true when the command should end.

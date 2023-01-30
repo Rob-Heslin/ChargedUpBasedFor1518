@@ -20,19 +20,14 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import frc.robot.commands.drive.DriveFieldRelative;
 import frc.robot.commands.drive.DriveFieldRelativeAdvanced;
-import frc.robot.commands.drive.DriveOnTarget;
 import frc.robot.commands.drive.DriveRobotCentric;
-import frc.robot.commands.drive.DriveRobotCentricNoGyro;
 import frc.robot.commands.drive.DriveStopAllModules;
-import frc.robot.commands.drive.auto.DriveFollowTrajectory;
-import frc.robot.commands.drive.util.DriveAdjustModuleZeroPoint;
+import frc.robot.commands.drive.util.DriveAdjustModulesManually;
 import frc.robot.commands.drive.util.DriveAllModulesPositionOnly;
-import frc.robot.commands.drive.util.DriveFindMaxAccel;
 import frc.robot.commands.drive.util.DriveOneModule;
 import frc.robot.commands.drive.util.DriveResetAllModulePositionsToZero;
 import frc.robot.commands.drive.util.DriveResetGyroToZero;
 import frc.robot.commands.drive.util.DriveSetGyro;
-import frc.robot.commands.drive.util.DriveTuneDriveMotorFeedForward;
 import frc.robot.commands.drive.util.DriveTurnToAngleInRad;
 
 import frc.robot.subsystems.SwerveDrive;
@@ -100,7 +95,9 @@ public class RobotContainer {
 
     //create(construct) subsystems
     swerveDrive = new SwerveDrive();
-    swerveDrive.setDefaultCommand(new DriveFieldRelativeAdvanced());
+    // swerveDrive.setDefaultCommand(new DriveRobotCentric(false));
+    // swerveDrive.setDefaultCommand(new DriveFieldRelative(false));
+    // swerveDrive.setDefaultCommand(new DriveFieldRelativeAdvanced(false));
     
     //Add all autos to the auto selector
     configureAutoModes();
@@ -109,8 +106,8 @@ public class RobotContainer {
     configureButtonBindings();
 
     //add some commands to dashboard for testing/configuring
+    SmartDashboard.putData(new DriveAdjustModulesManually());//For setup of swerve
     SmartDashboard.putData(new DriveResetAllModulePositionsToZero());//For setup of swerve
-    SmartDashboard.putData(new DriveAdjustModuleZeroPoint());//For setup of swerve
     SmartDashboard.putData("Drive Module 0", new DriveOneModule(0));//For setup of swerve
     SmartDashboard.putData("Drive Module 1", new DriveOneModule(1));//For setup of swerve
     SmartDashboard.putData("Drive Module 2", new DriveOneModule(2));//For setup of swerve
@@ -130,6 +127,8 @@ public class RobotContainer {
    */
   private void configureButtonBindings() {
     /* ==================== DRIVER BUTTONS ==================== */
+    driverLB.onTrue(new DriveResetGyroToZero());
+    driverBack.or(driverStart).toggleOnTrue(new DriveRobotCentric(false));
 
     /* =================== CODRIVER BUTTONS =================== */
     

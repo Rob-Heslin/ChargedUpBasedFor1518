@@ -18,7 +18,6 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  */
 public class Robot extends TimedRobot {
   private Command autonomousCommand;
-  private Timer disableTimer;
 
   public static RobotContainer robotContainer;
 
@@ -28,13 +27,9 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    //Stop the liveWindow from starting, we don't use it.
-    LiveWindow.setEnabled(false);
-    LiveWindow.disableAllTelemetry();
     // Instantiate our RobotContainer.  This will perform all our button bindings,
     // and put our autonomous chooser on the dashboard.
     robotContainer = new RobotContainer();
-    disableTimer = new Timer();
   }
 
   /**

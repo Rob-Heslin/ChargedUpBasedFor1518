@@ -7,21 +7,22 @@ package frc.robot.subsystems;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import edu.wpi.first.math.controller.PIDController;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
+
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
+import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 
-import edu.wpi.first.wpilibj.SPI;
+import edu.wpi.first.wpilibj.SerialPort;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
+import com.kauailabs.navx.frc.AHRS;
 
 import frc.robot.Constants;
-import frc.robot.subsystems.ADIS.CalibrationTime;
-import frc.robot.subsystems.ADIS.IMUAxis;
 import frc.robot.subsystems.swervelib.SwerveModule;
 
 /**
@@ -34,13 +35,12 @@ public class SwerveDrive extends SubsystemBase {
 
   private static SwerveModule swerveModules[];
   private static SwerveModule frontLeft, rearLeft, rearRight, frontRight;
-  public ADIS imu;
+  public AHRS imu;
   private SwerveDriveKinematics driveKinematics;
   public SwerveDriveOdometry driveOdometry;
   private PIDController robotSpinController;
   private PIDController robotCounterSpinController;
   private boolean hasPoseBeenSet = false;
-  private boolean isOdometry = true;
 
   /**
    * This enumeration clarifies the numbering of the swerve module for new users.
@@ -62,12 +62,11 @@ public class SwerveDrive extends SubsystemBase {
   
   /** Creates a new SwerveDrive. */
   public SwerveDrive() {
-    //adds CANCoder address as third param, already named as rotation sensor in constants
     // Constructs the swerve modules 
-    frontLeft = new SwerveModule(Constants.FRONT_LEFT_MOVE_MOTOR, Constants.FRONT_LEFT_ROTATE_MOTOR, Constants.FRONT_LEFT_ROTATE_SENSOR, false);
-    rearLeft = new SwerveModule(Constants.REAR_LEFT_MOVE_MOTOR, Constants.REAR_LEFT_ROTATE_MOTOR, Constants.REAR_LEFT_ROTATE_SENSOR, false);
-    rearRight = new SwerveModule(Constants.REAR_RIGHT_MOVE_MOTOR, Constants.REAR_RIGHT_ROTATE_MOTOR, Constants.REAR_RIGHT_ROTATE_SENSOR, false);
-    frontRight = new SwerveModule(Constants.FRONT_RIGHT_MOVE_MOTOR, Constants.FRONT_RIGHT_ROTATE_MOTOR, Constants.FRONT_RIGHT_ROTATE_SENSOR, false);
+    frontLeft = new SwerveModule(Constants.FRONT_LEFT_MOVE_MOTOR, Constants.FRONT_LEFT_ROTATE_MOTOR, Constants.FRONT_LEFT_ROTATE_SENSOR, true);
+    rearLeft = new SwerveModule(Constants.REAR_LEFT_MOVE_MOTOR, Constants.REAR_LEFT_ROTATE_MOTOR, Constants.REAR_LEFT_ROTATE_SENSOR, true);
+    rearRight = new SwerveModule(Constants.REAR_RIGHT_MOVE_MOTOR, Constants.REAR_RIGHT_ROTATE_MOTOR, Constants.REAR_RIGHT_ROTATE_SENSOR, true);
+    frontRight = new SwerveModule(Constants.FRONT_RIGHT_MOVE_MOTOR, Constants.FRONT_RIGHT_ROTATE_MOTOR, Constants.FRONT_RIGHT_ROTATE_SENSOR, true);
     
      //This may seem repetitive, but it makes clear which module is which.
     swerveModules = new SwerveModule[]{
@@ -83,10 +82,10 @@ public class SwerveDrive extends SubsystemBase {
       Constants.REAR_RIGHT_POSITION, Constants.FRONT_RIGHT_POSITION);
 
     // Constructs IMU object
-    imu = new ADIS(IMUAxis.kY, SPI.Port.kOnboardCS0, CalibrationTime._4s);//Must use params, won't work without
+    imu = new AHRS(SerialPort.Port.kUSB);//Must use params, won't work without
     
     //construct the odometry class.
-    driveOdometry = new SwerveDriveOdometry(driveKinematics, getGyroRotation2d());
+    driveOdometry = new SwerveDriveOdometry(driveKinematics, getGyroRotation2d(), getSwerveModulePositions());
 
     //construct the wpilib PIDcontroller for rotation.
     robotSpinController = new PIDController(Constants.ROBOT_SPIN_P, Constants.ROBOT_SPIN_I, Constants.ROBOT_SPIN_D);
@@ -97,36 +96,19 @@ public class SwerveDrive extends SubsystemBase {
     robotCounterSpinController.setTolerance(Constants.ROBOT_SPIN_PID_TOLERANCE);
 
     hasPoseBeenSet = false;
-    isOdometry = true;
   }
 
   @Override
   public void periodic() {
     // This method will be called once per scheduler run
     SmartDashboard.putNumber("Gyro", this.getGyroInDeg());
-    // SmartDashboard.putNumber("GyroZ", this.getGyroInDegZ());
+
     //run odometry update on the odometry object
-    if(isOdometry) {
-      //instatiate and construct a 4 large SwerveModuleState array
-      SwerveModuleState[] moduleStates =  new SwerveModuleState[4];
-      //get the current SwerveModuleStates from all modules in array
-      for (int i = 0; i < moduleStates.length; i++) {
-        moduleStates[i] = swerveModules[i].getModuleState();
-      }
-      driveOdometry.update(getGyroRotation2d(), moduleStates);
-      // SmartDashboard.putNumber("GyroRate", this.getRotationalVelocity());
-      // SmartDashboard.putNumber("Odometry X", getCurPose2d().getX());
-      // SmartDashboard.putNumber("Odometry Y", getCurPose2d().getY());
-    }
+    driveOdometry.update(getGyroRotation2d(), getSwerveModulePositions());
+
   }
 
-  public void setIsOdometry(boolean isOdometry){
-    this.isOdometry = isOdometry;
-  }
-
-  public boolean getIsOdometry(){
-    return isOdometry;
-  }
+  /* =================== Module Drive Methods =================== */
 
   /**
    * Drives the robot based on speeds from the robot's orientation.
@@ -140,7 +122,7 @@ public class SwerveDrive extends SubsystemBase {
     //instantiate an array of SwerveModuleStates, set equal to the output of toSwerveModuleStates() 
     SwerveModuleState[] targetStates = driveKinematics.toSwerveModuleStates(chassisSpeeds);
     //use SwerveDriveKinematic.desaturateWheelSpeeds(), max speed is 1 if percentOutput, MaxVelovcity if velocity mode
-    SwerveDriveKinematics.desaturateWheelSpeeds(targetStates, isVeloMode? Constants.PATH_MAXIMUM_VELOCITY : 1.0);
+    SwerveDriveKinematics.desaturateWheelSpeeds(targetStates, isVeloMode? Constants.MOTOR_MAXIMUM_VELOCITY : 1.0);
     // if(Math.abs(chassisSpeeds.vxMetersPerSecond) < 0.05 && Math.abs(chassisSpeeds.vyMetersPerSecond) < 0.05 && Math.abs(chassisSpeeds.omegaRadiansPerSecond) > .01){
     if(rotationOnlyMode){
       //pass along SwerveModuleStates to SwerveModules and pass along boolean isVeloMode
@@ -164,6 +146,7 @@ public class SwerveDrive extends SubsystemBase {
    * @param strafeSpeed the movement side to side
    * @param rotSpeed the speed of rotation
    * @param isVeloMode true if velocity mode, false if percent output mode
+   * @param rotationOnlyMode special boolean that allows override of module rotation, for when the robot only needs to rotate
    */
   public void driveRobotCentric(double forwardSpeed, double strafeSpeed, double rotSpeed, boolean isVeloMode, boolean rotationOnlyMode){
     //convert forwardSpeed, strafeSpeed and rotSpeed to a chassisSpeeds object, pass to driveRobotCentric
@@ -225,6 +208,8 @@ public class SwerveDrive extends SubsystemBase {
     }
   }
 
+  /* =================== Robot Pose Methods =================== */
+  
   /**
    * Pull the current Position from the odometry 
    * class, this should be in meters.
@@ -241,7 +226,7 @@ public class SwerveDrive extends SubsystemBase {
    * @param pose new current position
    */
   public void setCurPose2d(Pose2d pose) {
-    driveOdometry.resetPosition(pose, getGyroRotation2d());
+    driveOdometry.resetPosition( getGyroRotation2d(), getSwerveModulePositions(), pose);
     hasPoseBeenSet = true;
   }
 
@@ -254,38 +239,8 @@ public class SwerveDrive extends SubsystemBase {
     return hasPoseBeenSet;
   }
 
-  /**
-   * Estimates the closest angle to the target, 
-   * given that the odometry is working
-   * @return angle in radians (not restricted to PI to -PI)
-   */
-  public double getAngleOfTarget(){
-    //get the current angle    
-    double currentAngle = getGyroInRad();
-
-    //if the pose hasn't been set return current angle.
-    if(!hasPoseBeenSet){
-      return currentAngle;
-    }
-
-    // Calculating current angle between -pi and pi
-    double absoluteCurrentAngle = currentAngle%Constants.TWO_PI;
-    if(absoluteCurrentAngle > Math.PI){
-      absoluteCurrentAngle -= 2*(Math.PI);
-    }
-    else if(absoluteCurrentAngle < -Math.PI){
-      absoluteCurrentAngle += 2 * Math.PI;
-    }
-
-    // Finds where the center of the field is with respect to the robot
-    Translation2d target = driveOdometry.getPoseMeters().getTranslation().minus(Constants.FIELD_CENTER);
-    //based on that, find the angle of the above Tanslation2d object
-    double desiredAngle = Math.atan2(target.getY(), target.getX());
-
-    // Calculate the robot's target angle given the continuous angle of the gyroscope
-    return currentAngle - absoluteCurrentAngle + desiredAngle;
-  }
-
+  /* =================== Gyro/IMU Methods =================== */
+  
   /**
    * A function that allows the user to reset the gyro, this 
    * makes the current orientation of the robot 0 degrees on 
@@ -293,16 +248,6 @@ public class SwerveDrive extends SubsystemBase {
    */
   public void resetGyro(){
     //Resets the gyro(zero it)
-    if(!imu.getYawAxis().equals(IMUAxis.kY)){
-      return;
-    }
-    imu.reset();
-  }
-
-  public void resetGyroZ(){
-    if(!imu.getYawAxis().equals(IMUAxis.kY)){
-      return;
-    }
     imu.reset();
   }
 
@@ -314,10 +259,8 @@ public class SwerveDrive extends SubsystemBase {
    * @param newCurrentAngle value the gyro should now read in degrees.
    */
   public void setGyro(double newCurrentAngle){
-    if(!imu.getYawAxis().equals(IMUAxis.kY)){
-      return;
-    }
-    imu.setGyroAngle(newCurrentAngle);
+    imu.reset();
+    imu.setAngleAdjustment(newCurrentAngle);
   }
 
   
@@ -341,25 +284,10 @@ public class SwerveDrive extends SubsystemBase {
    * @return the angle of the robot in radians
    */
   public double getGyroInRad(){
-    return imu.getYawAxis().equals(ADIS.IMUAxis.kY)? Math.toRadians(getGyroInDeg()) : 0.0;// Pull the gyro in degrees, convert and return in radians
+    return Math.toRadians(getGyroInDeg());// Pull the gyro in degrees, convert and return in radians
     //note that counterclockwise rotation is positive
   }
 
-  public double getGyroInRadZ(){
-    return imu.getYawAxis().equals(ADIS.IMUAxis.kZ)? Math.toRadians(getGyroInDegZ()) : 0.0;// Pull the gyro in degrees, convert and return in radians
-    //note that counterclockwise rotation is positive
-  }
-
-  public void setGyroAxis(ADIS.IMUAxis axis){
-    if(imu.getYawAxis().equals(axis)){
-      return;
-    }
-    imu.setYawAxis(axis);
-  }
-
-  public IMUAxis getGyroAxis(){
-    return imu.getYawAxis();
-  }
 
   /**
    * This polls the onboard gyro, which, when the robot boots,
@@ -368,24 +296,8 @@ public class SwerveDrive extends SubsystemBase {
    * @return the angle of the robot in degrees
    */
   public double getGyroInDeg(){
-    return imu.getYawAxis().equals(ADIS.IMUAxis.kY)? imu.getAngle() : 0.0;//getYawAxis();//*-1;//Pull gyro in degrees
+    return imu.getAngle();//Pull gyro in degrees
     //note counterclockwise rotation is positive
-  }
-
-  public double getGyroInDegZ() {
-    return imu.getYawAxis().equals(ADIS.IMUAxis.kZ)? imu.getAngle() : 0.0;
-  }
-
-  public boolean isTiltedBack(){
-    return (imu.getYawAxis().equals(ADIS.IMUAxis.kZ)) && (Math.abs(getRotationalVelocityZ()) < 5) && (getGyroInDegZ() < -36 && getGyroInDegZ() > -40);
-  }
-
-  public boolean isTiltedUp(){
-    return (imu.getYawAxis().equals(ADIS.IMUAxis.kZ)) && (Math.abs(getRotationalVelocityZ()) < 5) && (getGyroInDegZ() < -20 && getGyroInDegZ() > -25);
-  }
-
-  public boolean isLiftToThirdReady(){
-    return (imu.getYawAxis().equals(ADIS.IMUAxis.kZ)) && (Math.abs(getRotationalVelocityZ()) < 2) && (getGyroInDegZ() > 15 );
   }
 
   /**
@@ -394,13 +306,11 @@ public class SwerveDrive extends SubsystemBase {
    * @return degrees per second
    */
   public double getRotationalVelocity(){
-    return imu.getYawAxis().equals(ADIS.IMUAxis.kY)? imu.getRate() : 0.0;
+    return imu.getRate();
   }
 
-  public double getRotationalVelocityZ(){
-    return imu.getYawAxis().equals(ADIS.IMUAxis.kZ)? imu.getRate() : 0.0;
-  }
-
+  /* =================== Pull From All Module Methods =================== */
+  
   /**
    * Returns all values from the module's absolute 
    * encoders, and returns them in an array of 
@@ -458,9 +368,27 @@ public class SwerveDrive extends SubsystemBase {
     return moduleVelocities;
   }
 
+  /**
+   * Gets all the SwerveModulePosition 
+   * of all modules.
+   * 
+   * @return An array of SwerveModulePositions.
+   */
+  public SwerveModulePosition[] getSwerveModulePositions(){
+    //instatiate and construct a 4 large SwerveModuleState array
+    SwerveModulePosition[] modulePositions =  new SwerveModulePosition[4];
+    //get the current SwerveModuleStates from all modules in array
+    for (int i = 0; i < modulePositions.length; i++) {
+      modulePositions[i] = swerveModules[i].getModulePosition();
+    }
+
+    return modulePositions;
+  }
+  
   /**  
    * method to configure all modules DriveMotor PIDF
-   * these are the PIDF on the TalonFX
+   * these are the PIDF on the TalonFX. This is for
+   * testing
    */
   public void setDrivePIDF(double P, double I, double D, double F){
     for (int i=0; i<4; i++){
@@ -468,20 +396,6 @@ public class SwerveDrive extends SubsystemBase {
     }
   }
 
-
-  /**
-   * a method to print all module positions for testing purposes
-   */
-  public void printAllModuleAngles(){
-    //Use a for loop to and print() all modules' angles(degrees) on one line  
-    System.out.print("Angle = ");
-  
-    for(int i=0; i<4; i++){
-      System.out.print(swerveModules[i].getAbsPosInDeg()+"\t");
-    }
-    //make sure to newline "\n" at the end
-    System.out.print("\n");
-  }
   
   /**
    * Method for taking the current position of all modules,

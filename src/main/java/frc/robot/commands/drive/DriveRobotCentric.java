@@ -24,18 +24,19 @@ import frc.robot.RobotContainer;
  * end.
  */
 public class DriveRobotCentric extends CommandBase {
+  private boolean veloMode;
   /**
    * Creates a new DriveRobotCentric.
    */
-  public DriveRobotCentric() {
+  public DriveRobotCentric(boolean veloMode) {
     // Use addRequirements() here to declare subsystem dependencies.
     addRequirements(RobotContainer.swerveDrive);
+    this.veloMode = veloMode;
   }
 
   // Called when the command is initially scheduled.
   @Override
   public void initialize() {
-    // RobotContainer.swerveDrive.setIsOdometry(false);
     RobotContainer.setDriverRumble(0.25, 0.25);
   }
 
@@ -60,7 +61,7 @@ public class DriveRobotCentric extends CommandBase {
       forwardSpeed *Constants.DRIVER_SPEED_SCALE_LINEAR ,
       strafeSpeed *Constants.DRIVER_SPEED_SCALE_LINEAR ,
       rotSpeed*-Constants.DRIVER_SPEED_SCALE_ROTATIONAL,
-      false,
+      veloMode,
       false
       );
   }

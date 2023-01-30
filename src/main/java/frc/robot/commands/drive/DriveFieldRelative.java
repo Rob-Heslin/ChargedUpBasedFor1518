@@ -13,7 +13,6 @@ import edu.wpi.first.wpilibj.XboxController.Axis;
 import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.robot.RobotContainer;
-import frc.robot.subsystems.ADIS.IMUAxis;
 
 
 /**
@@ -27,18 +26,19 @@ import frc.robot.subsystems.ADIS.IMUAxis;
  * to end.
  */
 public class DriveFieldRelative extends CommandBase {
+  private boolean veloMode;
   /**
    * Creates a new DriveFieldCentric.
    */
-  public DriveFieldRelative() {
+  public DriveFieldRelative(boolean veloMode) {
     // Use addRequirements() here to declare subsystem dependencies.
     addRequirements(RobotContainer.swerveDrive);
+    this.veloMode = veloMode;
   }
 
   // Called when the command is initially scheduled.
   @Override
   public void initialize() {
-    RobotContainer.swerveDrive.setGyroAxis(IMUAxis.kY);
   }
 
   // Called every time the scheduler runs while the command is scheduled.
@@ -59,7 +59,7 @@ public class DriveFieldRelative extends CommandBase {
       awaySpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
       lateralSpeed*-Constants.DRIVER_SPEED_SCALE_LINEAR,
       rotSpeed*-Constants.DRIVER_SPEED_SCALE_ROTATIONAL, 
-      false
+      veloMode
     );
   }
 

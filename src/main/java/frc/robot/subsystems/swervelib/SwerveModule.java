@@ -8,8 +8,9 @@
 package frc.robot.subsystems.swervelib;
 
 import edu.wpi.first.math.geometry.Rotation2d;
+
+import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import com.ctre.phoenix.motorcontrol.can.TalonFX;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
@@ -70,7 +71,7 @@ public class SwerveModule {
         driveMotor.configVoltageCompSaturation(Constants.MAXIMUM_VOLTAGE);
         setDriveMotorPIDF(Constants.SWERVE_DRIVE_P_VALUE, Constants.SWERVE_DRIVE_I_VALUE,
                           Constants.SWERVE_DRIVE_D_VALUE, Constants.SWERVE_DRIVE_FF_VALUE);
-        driveMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_1_General, 253);//TODO: rethink if we need this speed, I don't think we do
+        driveMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_1_General, 253);
         driveMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_2_Feedback0, 20);//This is key to odometry must be around same as code loop
         driveMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_3_Quadrature, 251);
         driveMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_4_AinTempVbat, 241);
@@ -100,18 +101,6 @@ public class SwerveModule {
         rotationMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_13_Base_PIDF0, 233);
         rotationMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_14_Turn_PIDF1, 229);
         rotationMotor.setStatusFramePeriod(StatusFrameEnhanced.Status_15_FirmwareApiStatus, 255);
-        // System.out.println( "Status_10_MotionMagic" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_10_MotionMagic));
-        // System.out.println( "Status_1_General" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_1_General));
-        // System.out.println( "11_UartGadgeteer" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_11_UartGadgeteer));
-        // System.out.println( "Status_13_Base_PIDF0" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_13_Base_PIDF0));
-        // System.out.println( "Status_14_Turn_PIDF1" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_14_Turn_PIDF1));
-        // System.out.println( "Status_15_FirmwareApiStatus" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_15_FirmwareApiStatus));
-        // System.out.println( "Status_3_Quadrature" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_3_Quadrature));
-        // System.out.println( "Status_4_AinTempVbat" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_4_AinTempVbat));
-        // System.out.println( "Status_6_Misc" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_6_Misc));
-        // System.out.println( "Status_7_CommStatus" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_7_CommStatus));
-        // System.out.println( "Status_8_PulseWidth" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_8_PulseWidth));
-        // System.out.println( "Status_9_MotProfBuffer" + rotationMotor.getStatusFramePeriod(StatusFrameEnhanced.Status_9_MotProfBuffer));
         rotationMotor.setSelectedSensorPosition(0.0);
         rotationMotor.configAllowableClosedloopError(0, Constants.SWERVE_MODULE_TOLERANCE, 0);
         
@@ -121,8 +110,7 @@ public class SwerveModule {
         rotateAbsSensor.configAbsoluteSensorRange(AbsoluteSensorRange.Signed_PlusMinus180);
         rotateAbsSensor.setStatusFramePeriod(CANCoderStatusFrame.SensorData, 20);//The default on this is 10, but 20 might be better given our code loop rate
         rotateAbsSensor.setStatusFramePeriod(CANCoderStatusFrame.VbatAndFaults, 255);
-        System.out.println( "VbatFaults" + rotateAbsSensor.getStatusFramePeriod(CANCoderStatusFrame.VbatAndFaults));
-        // rotateAbsSensor.getStatusFramePeriod(frame);
+        
     }
 
 
@@ -143,8 +131,7 @@ public class SwerveModule {
      * @param speed a speed in meters per second
      */
     public void setDriveSpeed(double speed) {
-        // driveMotor.set(TalonFXControlMode.Velocity, speed );
-        driveMotor.set(TalonFXControlMode.PercentOutput, speed / Constants.MOTOR_MAXIMUM_VELOCITY);
+        driveMotor.set(TalonFXControlMode.Velocity, speed );
     }
 
    /**
@@ -282,6 +269,18 @@ public class SwerveModule {
     }
 
     /**
+     * Returns the current position of the swerve module 
+     * as a SwerveModulePosition. The position of the module 
+     * should be in meters and the rotational position is 
+     * in the form of a Rotation2d object.
+     * 
+     * @return a SwerveModulePosition
+     */
+    public SwerveModulePosition getModulePosition(){
+        return new SwerveModulePosition(getDriveDistance(), getCurRot2d());
+    }
+
+    /**
      * This is a method meant for testing by getting the count from the 
      * rotational encoder which is internal to the NEO550. This encoder 
      * is relative, and does not easily translate to a specific rotational 
@@ -360,8 +359,6 @@ public class SwerveModule {
         
         // Optimize targetState with Rotation2d object pulled from above
         targetState = optimize(targetState, curPosition);
-        
-        // System.out.println("curAngle: "+curPosition.getDegrees()+"\t\t\t tarAngle: "+targetState.angle.getDegrees());
 
         // Find the difference between the target and current position
         double posDiff = targetState.angle.getRadians() - curPosition.getRadians(); 
